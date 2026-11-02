@@ -1,10 +1,6 @@
-import threading
 import uuid
-from collections import OrderedDict
 from pathlib import Path
 from typing import BinaryIO
-
-import pandas as pd
 
 from app.core.exceptions import PayloadTooLargeError
 
@@ -62,42 +58,3 @@ def copy_with_limit(source: BinaryIO, destination: Path, max_bytes: int) -> int:
         destination.unlink(missing_ok=True)
         raise
     return written
-
-
-class DataFrameCache:
-    """Thread-safe LRU cache of parsed Parquet files, keyed by path and mtime.
-
-    Cached frames are shared between requests: callers must treat them as read-only.
-    """
-
-    def __init__(self, maxsize: int) -> None:
-        self.maxsize = maxsize
-        self._frames: OrderedDict[tuple[str, int], pd.DataFrame] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def load(self, path: Path) -> pd.DataFrame:
-        key = (str(path), path.stat().st_mtime_ns)
-        with self._lock:
-            if key in self._frames:
-                self._frames.move_to_end(key)
-                return self._frames[key]
-
-        frame = pd.read_parquet(path)
-        if self.maxsize == 0:
-            return frame
-
-        with self._lock:
-            self._frames[key] = frame
-            self._frames.move_to_end(key)
-            while len(self._frames) > self.maxsize:
-                self._frames.popitem(last=False)
-        return frame
-
-    def invalidate(self, path: Path) -> None:
-        with self._lock:
-            for key in [k for k in self._frames if k[0] == str(path)]:
-                del self._frames[key]
-
-    def clear(self) -> None:
-        with self._lock:
-            self._frames.clear()

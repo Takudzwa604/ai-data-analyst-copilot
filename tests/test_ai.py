@@ -219,13 +219,13 @@ def test_registry_rejects_unknown_tool() -> None:
     ],
 )
 def test_registry_rejects_invalid_tool_input(name: str, tool_input: Any) -> None:
-    context = ToolContext(df=_sales_df(), max_rows=100)
+    context = ToolContext(source=_sales_df(), max_rows=100)
     with pytest.raises(ToolError, match="Invalid input"):
         TOOL_REGISTRY.execute(name, tool_input, context)
 
 
 def test_registry_surfaces_analytics_errors() -> None:
-    context = ToolContext(df=_sales_df(), max_rows=100)
+    context = ToolContext(source=_sales_df(), max_rows=100)
     with pytest.raises(ToolError, match="Unknown column"):
         TOOL_REGISTRY.execute(
             "aggregate_dataset", {"group_by": ["sku"], "metrics": [{"func": "count"}]}, context
@@ -233,7 +233,7 @@ def test_registry_surfaces_analytics_errors() -> None:
 
 
 def test_registry_executes_each_tool() -> None:
-    context = ToolContext(df=_sales_df(), max_rows=100)
+    context = ToolContext(source=_sales_df(), max_rows=100)
     output = TOOL_REGISTRY.execute("aggregate_dataset", REVENUE_BY_PRODUCT, context)
     assert output.rows == [
         {"product": "Widget", "revenue": 350.0},
@@ -253,7 +253,7 @@ def test_registry_executes_each_tool() -> None:
 
 
 def test_preview_respects_server_row_cap() -> None:
-    context = ToolContext(df=_sales_df(), max_rows=3)
+    context = ToolContext(source=_sales_df(), max_rows=3)
     assert len(TOOL_REGISTRY.execute("preview_dataset", {"limit": 50}, context).rows) == 3
 
 

@@ -22,7 +22,6 @@ os.environ.update(
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
-from app.api.deps import get_dataframe_cache  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import engine  # noqa: E402
 from app.main import app  # noqa: E402
@@ -45,7 +44,6 @@ async def _database() -> AsyncIterator[None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
-    get_dataframe_cache().clear()
 
 
 @pytest.fixture

@@ -2,7 +2,6 @@ import logging
 import uuid
 from pathlib import Path
 
-import pandas as pd
 from fastapi import UploadFile
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
@@ -13,7 +12,7 @@ from app.core.exceptions import NotFoundError, UnsupportedMediaTypeError
 from app.models import Dataset, User
 from app.schemas.dataset import DatasetUpdate
 from app.services.ingestion import SUPPORTED_EXTENSIONS, ingest_file
-from app.services.storage import DataFrameCache, LocalStorage, copy_with_limit
+from app.services.storage import LocalStorage, copy_with_limit
 
 logger = logging.getLogger(__name__)
 
@@ -108,13 +107,9 @@ async def update_dataset(db: AsyncSession, dataset: Dataset, changes: DatasetUpd
     return dataset
 
 
-async def delete_dataset(
-    db: AsyncSession, storage: LocalStorage, cache: DataFrameCache, dataset: Dataset
-) -> None:
-    path = storage.path_for(dataset.storage_key)
+async def delete_dataset(db: AsyncSession, storage: LocalStorage, dataset: Dataset) -> None:
     await db.delete(dataset)
     await db.commit()
-    cache.invalidate(path)
     try:
         storage.delete(dataset.storage_key)
     except OSError:
@@ -122,7 +117,9 @@ async def delete_dataset(
         logger.warning("Failed to delete dataset file", extra={"storage_key": dataset.storage_key})
 
 
-async def load_dataframe(
-    storage: LocalStorage, cache: DataFrameCache, dataset: Dataset
-) -> pd.DataFrame:
-    return await run_in_threadpool(cache.load, storage.path_for(dataset.storage_key))
+def dataset_path(storage: LocalStorage, dataset: Dataset) -> Path:
+    """Location of the dataset's Parquet file; analytics query it in place."""
+    path = storage.path_for(dataset.storage_key)
+    if not path.is_file():
+        raise NotFoundError("Dataset file is missing from storage")
+    return path

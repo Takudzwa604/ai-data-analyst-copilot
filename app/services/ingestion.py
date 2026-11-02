@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 
 from app.core.exceptions import InvalidRequestError
-from app.services.analytics import column_kind
+from app.services.duckdb_engine import describe_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +91,9 @@ def normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def describe_columns(df: pd.DataFrame) -> list[dict[str, Any]]:
-    return [
-        {"name": name, "dtype": str(df[name].dtype), "kind": column_kind(df[name])}
-        for name in df.columns
-    ]
+def describe_columns(path: Path) -> list[dict[str, Any]]:
+    """Column metadata as the analytics engine sees the stored file."""
+    return [{"name": c.name, "dtype": c.type, "kind": c.kind} for c in describe_parquet(path)]
 
 
 def ingest_file(source: Path, extension: str, destination: Path) -> IngestResult:
@@ -107,4 +105,6 @@ def ingest_file(source: Path, extension: str, destination: Path) -> IngestResult
         destination.unlink(missing_ok=True)
         logger.warning("Failed to convert dataset to parquet: %s", exc)
         raise InvalidRequestError("File contains data that could not be stored") from exc
-    return IngestResult(row_count=len(df), column_count=df.shape[1], columns=describe_columns(df))
+    return IngestResult(
+        row_count=len(df), column_count=df.shape[1], columns=describe_columns(destination)
+    )

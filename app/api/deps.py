@@ -1,22 +1,22 @@
 import logging
 import uuid
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 import anthropic
-import pandas as pd
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.analyst import AnalystService
 from app.core.config import Settings, get_settings
-from app.core.exceptions import AIUnavailableError, AuthenticationError, NotFoundError
+from app.core.exceptions import AIUnavailableError, AuthenticationError
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models import Dataset, User
-from app.services.datasets import get_dataset_for_user, load_dataframe
-from app.services.storage import DataFrameCache, LocalStorage
+from app.services.datasets import dataset_path, get_dataset_for_user
+from app.services.storage import LocalStorage
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +28,9 @@ def get_storage() -> LocalStorage:
     return LocalStorage(get_settings().storage_dir)
 
 
-@lru_cache
-def get_dataframe_cache() -> DataFrameCache:
-    return DataFrameCache(get_settings().dataframe_cache_size)
-
-
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 StorageDep = Annotated[LocalStorage, Depends(get_storage)]
-CacheDep = Annotated[DataFrameCache, Depends(get_dataframe_cache)]
 
 
 async def get_current_user(
@@ -64,16 +58,11 @@ async def get_owned_dataset(dataset_id: uuid.UUID, user: CurrentUser, db: DbSess
 OwnedDataset = Annotated[Dataset, Depends(get_owned_dataset)]
 
 
-async def get_dataset_frame(
-    dataset: OwnedDataset, storage: StorageDep, cache: CacheDep
-) -> pd.DataFrame:
-    try:
-        return await load_dataframe(storage, cache, dataset)
-    except FileNotFoundError as exc:
-        raise NotFoundError("Dataset file is missing from storage") from exc
+def get_dataset_source(dataset: OwnedDataset, storage: StorageDep) -> Path:
+    return dataset_path(storage, dataset)
 
 
-DatasetFrame = Annotated[pd.DataFrame, Depends(get_dataset_frame)]
+DatasetSource = Annotated[Path, Depends(get_dataset_source)]
 
 
 @lru_cache

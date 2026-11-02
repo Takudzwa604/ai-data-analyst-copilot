@@ -76,5 +76,8 @@ class DatasetProfile(BaseModel):
     row_count: int
     column_count: int
     duplicate_rows: int
-    memory_bytes: int
+    memory_bytes: int | None = Field(
+        default=None, description="Deprecated: always null since analytics moved to DuckDB."
+    )
+    storage_bytes: int | None = Field(default=None, description="Size of the stored Parquet file.")
     columns: list[ColumnProfile]

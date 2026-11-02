@@ -1,15 +1,14 @@
 """Tool registry: the only operations the AI analyst can perform.
 
 Each tool pairs a typed input model with a handler that delegates to the existing analytics
-service. Tools never receive a dataset ID; they operate on the DataFrame the caller already
-authorized and loaded, so model output cannot reach other users' data.
+service. Tools never receive a dataset ID; they operate on the data source the caller already
+authorized, so model output cannot reach other users' data.
 """
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-import pandas as pd
 from pydantic import BaseModel, ValidationError
 
 from app.ai.schemas import (
@@ -21,6 +20,7 @@ from app.ai.schemas import (
 )
 from app.core.exceptions import InvalidRequestError
 from app.services import analytics
+from app.services.duckdb_engine import DataSource
 
 # JSON Schema keywords strict tool use does not accept; Pydantic still enforces them.
 _UNSUPPORTED_SCHEMA_KEYS = {
@@ -44,7 +44,7 @@ class ToolError(Exception):
 
 @dataclass(frozen=True)
 class ToolContext:
-    df: pd.DataFrame
+    source: DataSource  # Parquet path in production
     max_rows: int
 
 
@@ -148,22 +148,22 @@ def _format_errors(exc: ValidationError) -> str:
 
 
 def _profile(_: ProfileDatasetInput, ctx: ToolContext) -> ToolOutput:
-    result = analytics.profile(ctx.df)
+    result = analytics.profile(ctx.source)
     return ToolOutput(payload=result, rows=result["columns"])
 
 
 def _preview(params: PreviewDatasetInput, ctx: ToolContext) -> ToolOutput:
-    result = analytics.preview(ctx.df, params.offset, min(params.limit, ctx.max_rows))
+    result = analytics.preview(ctx.source, params.offset, min(params.limit, ctx.max_rows))
     return ToolOutput(payload=result, rows=result["rows"])
 
 
 def _aggregate(params: AggregateDatasetInput, ctx: ToolContext) -> ToolOutput:
-    result = analytics.aggregate(ctx.df, params.to_request(), ctx.max_rows)
+    result = analytics.aggregate(ctx.source, params.to_request(), ctx.max_rows)
     return ToolOutput(payload=result, rows=result["rows"])
 
 
 def _correlation(params: CorrelationAnalysisInput, ctx: ToolContext) -> ToolOutput:
-    result = analytics.correlation(ctx.df, params.to_request())
+    result = analytics.correlation(ctx.source, params.to_request())
     columns = result["columns"]
     rows = [
         {"column": column, **dict(zip(columns, values, strict=True))}
@@ -173,7 +173,7 @@ def _correlation(params: CorrelationAnalysisInput, ctx: ToolContext) -> ToolOutp
 
 
 def _timeseries(params: TimeSeriesAnalysisInput, ctx: ToolContext) -> ToolOutput:
-    result = analytics.timeseries(ctx.df, params.to_request(), ctx.max_rows)
+    result = analytics.timeseries(ctx.source, params.to_request(), ctx.max_rows)
     return ToolOutput(payload=result, rows=result["rows"])
 
 

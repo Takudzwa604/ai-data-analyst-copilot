@@ -4,9 +4,8 @@ from fastapi import APIRouter, File, Form, Query, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import (
-    CacheDep,
     CurrentUser,
-    DatasetFrame,
+    DatasetSource,
     DbSession,
     OwnedDataset,
     SettingsDep,
@@ -61,22 +60,20 @@ async def update_dataset(dataset: OwnedDataset, payload: DatasetUpdate, db: DbSe
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(
-    dataset: OwnedDataset, db: DbSession, storage: StorageDep, cache: CacheDep
-) -> Response:
-    await dataset_service.delete_dataset(db, storage, cache, dataset)
+async def delete_dataset(dataset: OwnedDataset, db: DbSession, storage: StorageDep) -> Response:
+    await dataset_service.delete_dataset(db, storage, dataset)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{dataset_id}/preview", response_model=DatasetPreview)
 async def preview_dataset(
-    df: DatasetFrame,
+    source: DatasetSource,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=1000)] = 50,
 ) -> dict[str, Any]:
-    return await run_in_threadpool(analytics.preview, df, offset, limit)
+    return await run_in_threadpool(analytics.preview, source, offset, limit)
 
 
 @router.get("/{dataset_id}/profile", response_model=DatasetProfile)
-async def profile_dataset(df: DatasetFrame) -> dict[str, Any]:
-    return await run_in_threadpool(analytics.profile, df)
+async def profile_dataset(source: DatasetSource) -> dict[str, Any]:
+    return await run_in_threadpool(analytics.profile, source)

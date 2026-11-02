@@ -19,6 +19,8 @@ dependencies = [
     "argon2-cffi>=23.1",
     "pandas>=2.2",
     "pyarrow>=18",
+    "duckdb>=2.0",
+    "pytz>=2024.1",
     "openpyxl>=3.1",
     "anthropic>=2.3",
 ]
@@ -53,4 +55,8 @@ select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF"]
 ignore = ["B008", "S101"]
 
 [tool.ruff.lint.per-file-ignores]
+# The analytics engine builds SQL from validated requests: identifiers go through
+# quote_ident() and user values are always bound as parameters.
+"app/services/analytics.py" = ["S608"]
+"app/services/duckdb_engine.py" = ["S608"]
 "tests/*" = ["S105", "S106", "S107"]

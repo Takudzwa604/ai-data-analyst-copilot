@@ -1,7 +1,7 @@
 """AnalystService: question -> dataset context -> Claude -> tool calls -> Claude summary.
 
 A small manual tool-use loop (no agent framework): Claude picks tools from the registry,
-we validate and execute them against the authorized DataFrame, and feed results back until
+we validate and execute them against the authorized dataset, and feed results back until
 Claude answers or the round limit is reached.
 """
 
@@ -10,7 +10,6 @@ import logging
 from typing import Any
 
 import anthropic
-import pandas as pd
 from fastapi.concurrency import run_in_threadpool
 
 from app.ai.prompts import REFUSAL_ANSWER, SYSTEM_PROMPT, build_user_message
@@ -18,6 +17,7 @@ from app.ai.schemas import ChatResponse, DatasetContext, ToolCallRecord
 from app.ai.tools import TOOL_REGISTRY, ToolContext, ToolError, ToolOutput, ToolRegistry
 from app.core.config import Settings
 from app.core.exceptions import AIServiceError, AIUnavailableError
+from app.services.duckdb_engine import DataSource
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,10 @@ class AnalystService:
         self._tools = registry.definitions(strict=settings.ai_strict_tools)
 
     async def answer(
-        self, *, context: DatasetContext, question: str, df: pd.DataFrame
+        self, *, context: DatasetContext, question: str, source: DataSource
     ) -> ChatResponse:
         tool_context = ToolContext(
-            df=df,
+            source=source,
             max_rows=min(self.settings.max_result_rows, self.settings.ai_max_tool_rows),
         )
         messages: list[dict[str, Any]] = [

@@ -39,8 +39,13 @@ class Settings(BaseSettings):
     # Storage & analytics
     storage_dir: Path = Path("./data/datasets")
     max_upload_size_mb: int = Field(default=100, gt=0)
-    dataframe_cache_size: int = Field(default=16, ge=0)
     max_result_rows: int = Field(default=10_000, gt=0)
+
+    # DuckDB analytics engine. Unset values use DuckDB's defaults
+    # (all cores, 80% of RAM, spilling under STORAGE_DIR/.duckdb_tmp).
+    duckdb_threads: int | None = Field(default=None, gt=0)
+    duckdb_memory_limit: str | None = None
+    duckdb_temp_dir: Path | None = None
 
     # AI analyst (Claude API)
     # When unset, the Anthropic SDK resolves credentials itself

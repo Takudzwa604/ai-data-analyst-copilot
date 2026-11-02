@@ -8,7 +8,8 @@ resampling.
 
 - **Auth**: registration, OAuth2 password login, JWT access + refresh tokens, Argon2 password hashing
 - **Datasets**: upload CSV, TSV, XLSX, JSON or Parquet; normalized and stored as Parquet; per-user isolation
-- **Analytics**: profile, preview, aggregate (filters, group-by, metrics, sort), correlation, time series
+- **Analytics**: profile, preview, aggregate (filters, group-by, metrics, sort), correlation, time series,
+  executed by DuckDB directly on the stored Parquet files (only the needed columns and row groups are read)
 - **Safe querying**: columns, operators and functions are whitelisted. User input never reaches `eval` or `DataFrame.query`
 - **Operations**: async SQLAlchemy (Postgres or SQLite), Alembic migrations, structured JSON logs with request IDs,
   liveness/readiness probes, consistent error envelope, security headers, gzip, Docker image (non-root)
@@ -129,7 +130,7 @@ app/
   db/             SQLAlchemy base, engine, session
   models/         ORM models
   schemas/        Pydantic request/response models
-  services/       ingestion, storage + cache, analytics (pure pandas), dataset CRUD
+  services/       ingestion (pandas), storage, DuckDB engine + analytics, dataset CRUD
 alembic/          migrations
 tests/            pytest suite (API + service-level)
 ```
@@ -149,8 +150,15 @@ alembic revision --autogenerate -m "describe change"
   (e.g. nginx `client_max_body_size`).
 - **Storage**: datasets live on the local filesystem (`STORAGE_DIR`). With several hosts, mount
   shared storage or replace `LocalStorage` with an object-store backend that has the same interface.
-- **Memory**: each worker caches up to `DATAFRAME_CACHE_SIZE` parsed datasets. Size workers and
-  the cache to fit your largest datasets.
+- **Memory**: analytics stream over Parquet instead of loading datasets, so memory follows the query,
+  not the dataset size. Each worker process has its own DuckDB instance that defaults to 80% of RAM
+  and all cores: with several workers, set `DUCKDB_MEMORY_LIMIT` (it spills to `DUCKDB_TEMP_DIR`
+  beyond that) and `DUCKDB_THREADS` so their total fits the machine. The most memory-hungry
+  operations are exact distinct counts and quartiles in `profile`, which run one column at a time.
+- **Spearman correlation** on columns with missing values ranks each column pair separately
+  (exactly as pandas does), so its cost grows with the square of the column count.
+- **Ingestion still uses pandas** (needed for Excel and type cleanup), so an upload is held in memory
+  while it is converted to Parquet.
 - **Uploads are processed synchronously** (parsed in a worker thread). For very large files,
   move ingestion to a task queue (Celery, RQ, Arq).
 - **Tokens are stateless**: logout or revocation needs a denylist or a per-user token version.
