@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.exceptions import UnsupportedMediaTypeError
+from app.core.exceptions import NotFoundError, UnsupportedMediaTypeError
 from app.models import Dataset, User
 from app.schemas.dataset import DatasetUpdate
 from app.services.ingestion import SUPPORTED_EXTENSIONS, ingest_file
@@ -73,6 +73,14 @@ async def create_dataset(
         "Dataset created",
         extra={"dataset_id": str(dataset.id), "rows": result.row_count, "bytes": size_bytes},
     )
+    return dataset
+
+
+async def get_dataset_for_user(db: AsyncSession, user: User, dataset_id: uuid.UUID) -> Dataset:
+    dataset = await db.get(Dataset, dataset_id)
+    # 404 rather than 403 so other users' dataset IDs are not disclosed.
+    if dataset is None or (dataset.owner_id != user.id and not user.is_superuser):
+        raise NotFoundError("Dataset not found")
     return dataset
 
 

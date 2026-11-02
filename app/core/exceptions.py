@@ -71,6 +71,18 @@ class UnsupportedMediaTypeError(AppError):
     message = "Unsupported file type"
 
 
+class AIServiceError(AppError):
+    status_code = 502
+    code = "ai_service_error"
+    message = "The AI analyst could not complete the request"
+
+
+class AIUnavailableError(AppError):
+    status_code = 503
+    code = "ai_unavailable"
+    message = "The AI analyst is currently unavailable"
+
+
 def error_body(code: str, message: str, details: Any = None) -> dict[str, Any]:
     error: dict[str, Any] = {"code": code, "message": message, "request_id": request_id_ctx.get()}
     if details is not None:

@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _INSECURE_DEFAULT_SECRET = "insecure-dev-secret-change-me"  # noqa: S105
@@ -41,6 +41,19 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = Field(default=100, gt=0)
     dataframe_cache_size: int = Field(default=16, ge=0)
     max_result_rows: int = Field(default=10_000, gt=0)
+
+    # AI analyst (Claude API)
+    # When unset, the Anthropic SDK resolves credentials itself
+    # (ANTHROPIC_API_KEY env var, ANTHROPIC_AUTH_TOKEN, or an `ant auth login` profile).
+    anthropic_api_key: SecretStr | None = None
+    ai_model: str = "claude-opus-5-5"
+    ai_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+    ai_max_tokens: int = Field(default=16_000, gt=0)
+    ai_max_tool_rounds: int = Field(default=4, ge=1, le=10)
+    ai_max_tool_rows: int = Field(default=200, gt=0)
+    ai_timeout_seconds: float = Field(default=120.0, gt=0)
+    ai_strict_tools: bool = True
+    ai_fallbacks_enabled: bool = True
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

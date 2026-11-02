@@ -56,6 +56,7 @@ All endpoints except `/health*` and `/api/v1/auth/*` need `Authorization: Bearer
 | POST | `/api/v1/datasets/{id}/analytics/aggregate` | Filter / group / aggregate |
 | POST | `/api/v1/datasets/{id}/analytics/correlation` | Pearson or Spearman matrix |
 | POST | `/api/v1/datasets/{id}/analytics/timeseries` | Resample by hour…year |
+| POST | `/api/v1/chat` | Ask the AI analyst a question about a dataset |
 
 ### Example: aggregate
 
@@ -73,6 +74,37 @@ curl -X POST localhost:8000/api/v1/datasets/$ID/analytics/aggregate \
 
 Filter ops: `eq ne gt gte lt lte in not_in contains is_null not_null`.
 Metric funcs: `count nunique sum mean median min max std var`.
+
+### AI analyst: `POST /api/v1/chat`
+
+Ask a question in plain language. Claude reads the dataset's metadata (name, row count,
+column names and types), picks from five read-only tools (`profile_dataset`,
+`preview_dataset`, `aggregate_dataset`, `correlation_analysis`, `time_series_analysis`),
+then summarizes the results. It never writes SQL. Tools run through the same analytics
+service as the endpoints above and can only touch the dataset you own.
+
+```bash
+curl -X POST localhost:8000/api/v1/chat \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"dataset_id": "'$ID'", "question": "Which products generate the most revenue?"}'
+```
+
+```json
+{
+  "answer": "Widget generates the most revenue (350.0), followed by Gadget (135.0).",
+  "tool_used": "aggregate_dataset",
+  "results": [{"product": "Widget", "revenue": 350.0}, {"product": "Gadget", "revenue": 135.0}],
+  "tool_calls": [{"tool": "aggregate_dataset", "input": {"...": "..."}, "is_error": false, "error": null}],
+  "model": "claude-opus-5-5"
+}
+```
+
+`tool_used` is the last tool that ran successfully and `results` holds its rows. `tool_calls`
+lists every attempt, including rejected ones: invalid tool calls are returned to Claude as
+errors so it can correct itself. Set `ANTHROPIC_API_KEY` (or sign in with `ant auth login`)
+to enable it. Without credentials the endpoint returns `503 ai_unavailable`. Code lives in
+`app/ai/`: `schemas.py` (tool inputs), `tools.py` (registry), `prompts.py`, `service.py`
+(dataset context) and `analyst.py` (the Claude loop).
 
 ### Errors
 
