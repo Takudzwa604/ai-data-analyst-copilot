@@ -11,6 +11,12 @@ async def test_health(client: AsyncClient) -> None:
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
+async def test_root_redirects_to_docs(client: AsyncClient) -> None:
+    response = await client.get("/")
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"
+
+
 async def test_readiness(client: AsyncClient) -> None:
     response = await client.get("/health/ready")
     assert response.status_code == 200
