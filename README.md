@@ -4,6 +4,9 @@ A FastAPI backend for uploading tabular datasets and running analytics on them: 
 paginated previews, filtered group-by aggregations, correlation matrices and time-series
 resampling.
 
+New to the project? [WALKTHROUGH.md](WALKTHROUGH.md) is a guided tour: a live demo, one
+request followed through the code, and the main design decisions.
+
 ## Features
 
 - **Auth**: registration, OAuth2 password login, JWT access + refresh tokens, Argon2 password hashing
