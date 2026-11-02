@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A new push to the same branch or PR cancels the run it replaces.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      # The AI tests use a fake Claude client: no API key or secrets needed.
+      - run: pytest -q
+      - name: Migrations apply cleanly and match the models
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./ci.db
+        run: |
+          alembic upgrade head
+          alembic check
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t analytics-api .
+      - name: Container starts, migrates and serves /health
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -e SECRET_KEY="ci-only-secret-key-not-used-anywhere-else-0123456789" \
+            -e DATABASE_URL="sqlite+aiosqlite:////data/app.db" \
+            analytics-api
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health/ready; then exit 0; fi
+            sleep 2
+          done
+          docker logs api
+          exit 1
