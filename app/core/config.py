@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     ai_timeout_seconds: float = Field(default=120.0, gt=0)
     ai_strict_tools: bool = True
     ai_fallbacks_enabled: bool = True
+    # Answer with a keyword matcher instead of Claude: no credentials and no API costs.
+    ai_demo_mode: bool = False
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
@@ -86,6 +88,8 @@ class Settings(BaseSettings):
                 raise ValueError("DEBUG must be disabled in production")
             if "*" in self.cors_origins:
                 raise ValueError("Wildcard CORS origins are not allowed in production")
+            if self.ai_demo_mode:
+                raise ValueError("AI_DEMO_MODE must be disabled in production")
         return self
 
     @property

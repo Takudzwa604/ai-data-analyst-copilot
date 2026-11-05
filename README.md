@@ -105,7 +105,15 @@ lists every attempt, including rejected ones: invalid tool calls are returned to
 errors so it can correct itself. Set `ANTHROPIC_API_KEY` (or sign in with `ant auth login`)
 to enable it. Without credentials the endpoint returns `503 ai_unavailable`. Code lives in
 `app/ai/`: `schemas.py` (tool inputs), `tools.py` (registry), `prompts.py`, `service.py`
-(dataset context) and `analyst.py` (the Claude loop).
+(dataset context), `analyst.py` (the Claude loop) and `demo.py` (demo mode).
+
+**Trying it for free:** set `AI_DEMO_MODE=true` to answer without Claude, with no API key or
+cost. A keyword matcher picks a tool from the same registry and runs it on your real data, then
+fills in a template answer. Answers start with `[Demo mode]` and `model` is `demo-mode (no AI)`.
+It only understands simple questions, such as "which townships have the most sales?", "average
+revenue by region", "any missing values?" or "revenue trend by month", and it can't apply
+filters: if a question seems to ask about a subset, the answer says it covers every row.
+The app won't start with demo mode on in `ENVIRONMENT=production`.
 
 ### Errors
 
