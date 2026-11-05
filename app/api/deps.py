@@ -10,6 +10,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.analyst import AnalystService
+from app.ai.demo import DemoAnalystService
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AIUnavailableError, AuthenticationError
 from app.core.security import decode_token
@@ -76,7 +77,10 @@ def _build_anthropic_client() -> anthropic.AsyncAnthropic:
     )
 
 
-def get_anthropic_client() -> anthropic.AsyncAnthropic:
+def get_anthropic_client(settings: SettingsDep) -> anthropic.AsyncAnthropic | None:
+    # Demo mode never calls the API, so it must work without credentials.
+    if settings.ai_demo_mode:
+        return None
     # Failures are not cached by lru_cache, so a fixed configuration is picked up on retry.
     try:
         return _build_anthropic_client()
@@ -87,9 +91,11 @@ def get_anthropic_client() -> anthropic.AsyncAnthropic:
 
 def get_analyst_service(
     settings: SettingsDep,
-    client: Annotated[anthropic.AsyncAnthropic, Depends(get_anthropic_client)],
-) -> AnalystService:
+    client: Annotated[anthropic.AsyncAnthropic | None, Depends(get_anthropic_client)],
+) -> AnalystService | DemoAnalystService:
+    if client is None:
+        return DemoAnalystService(settings)
     return AnalystService(client, settings)
 
 
-AnalystDep = Annotated[AnalystService, Depends(get_analyst_service)]
+AnalystDep = Annotated[AnalystService | DemoAnalystService, Depends(get_analyst_service)]

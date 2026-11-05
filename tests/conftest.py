@@ -16,6 +16,7 @@ os.environ.update(
         "LOG_LEVEL": "WARNING",
         "AUTO_CREATE_TABLES": "false",
         "CORS_ORIGINS": "",
+        "AI_DEMO_MODE": "false",
     }
 )
 
