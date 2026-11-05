@@ -75,9 +75,14 @@ can be called with "Try it out".
    ```json
    {"dataset_id": "PASTE-ID", "question": "Which products generate the most revenue?"}
    ```
-   Without an Anthropic API key this returns `503 ai_unavailable`, which is expected. With a
-   key in `.env` (`ANTHROPIC_API_KEY=...`), Claude picks `aggregate_dataset`, the server runs
-   it, and Claude explains the result. Each question costs a few cents.
+   This needs one of two setups in `.env`; restart the server after changing it:
+   - **Free: `AI_DEMO_MODE=true`.** A keyword matcher stands in for Claude and runs the same
+     tool. Expected: `[Demo mode] product with the highest total of revenue: Gadget (180),
+     Widget (170).` It only understands simple questions and can't apply filters.
+   - **Claude: `ANTHROPIC_API_KEY=...`.** Claude picks `aggregate_dataset`, the server runs it,
+     and Claude explains the result. Each question costs a few cents.
+
+   With neither, this returns `503 ai_unavailable`, which is expected.
 
 ## 3. Follow one request through the code
 
@@ -107,15 +112,19 @@ A good test to show: `test_chat_recovers_from_invalid_tool_calls` in `tests/test
 A scripted Claude tries a made-up `run_sql` tool, then an unknown column; both are rejected
 with an error it can read, and it succeeds on the third try.
 
+Demo mode (`app/ai/demo.py`) replaces only steps 4 and 5: it picks the tool with keyword
+matching and writes the answer from a template. The login checks, dataset context, tools and
+validation are the same, and it is labelled in every answer so it can't be mistaken for Claude.
+
 ## 4. How we know it works
 
 ```powershell
 .venv\Scripts\python -m pytest -q
 ```
 
-94 automated tests cover logins, uploads, every analytics operation, the AI layer (with a
-fake Claude client, so no API key or cost), and the DuckDB engine checked against pandas'
-results.
+140 automated tests cover logins, uploads, every analytics operation, the AI layer (with a
+fake Claude client, so no API key or cost), demo mode, and the DuckDB engine checked against
+pandas' results.
 
 On GitHub, every pull request runs the **CI** workflow (`.github/workflows/ci.yml`):
 

@@ -1,8 +1,12 @@
 # Data Analytics Platform — API
 
-A FastAPI backend for uploading tabular datasets and running analytics on them: profiling,
-paginated previews, filtered group-by aggregations, correlation matrices and time-series
-resampling.
+A FastAPI backend for uploading tabular datasets, analyzing them, and asking questions about
+them in plain English: profiling, paginated previews, filtered group-by aggregations,
+correlation matrices and time-series resampling, plus an AI analyst built on the Claude API
+that chooses from validated, read-only tools instead of writing SQL.
+
+You can run all of it for free: set `AI_DEMO_MODE=true` in `.env` to try plain-English
+questions without an API key ([details](#ai-analyst-post-apiv1chat)).
 
 New to the project? [WALKTHROUGH.md](WALKTHROUGH.md) is a guided tour: a live demo, one
 request followed through the code, and the main design decisions.
@@ -136,7 +140,8 @@ with `DEBUG=true`, or with wildcard CORS.
 
 ```
 app/
-  api/            routers, dependencies (auth, ownership, dataframe loading)
+  ai/             AI analyst: tool registry, Claude loop, dataset context, demo mode
+  api/            routers, dependencies (auth, ownership, dataset files)
   core/           config, security, logging, middleware, error handling
   db/             SQLAlchemy base, engine, session
   models/         ORM models
